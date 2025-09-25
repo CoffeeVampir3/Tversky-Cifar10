@@ -28,9 +28,9 @@ class TverskyLayer(nn.Module):
         x_features = torch.einsum('bpi,fi->bpf', x_expanded, self.features)  # [batch, num_prototypes, num_features]
         p_features = torch.einsum('bpi,fi->bpf', proto_expanded, self.features)  # [batch, num_prototypes, num_features]
 
-        # Binary presence masks
-        x_present = torch.sigmoid(x_features)
-        p_present = torch.sigmoid(p_features)
+        # a · fk > 0
+        x_present = torch.nn.functional.relu(x_features)
+        p_present = torch.nn.functional.relu(p_features)
 
         # Set operations
         both_present = x_present * p_present  # A ∩ B
