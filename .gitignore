@@ -7,6 +7,7 @@ venv/
 .uv/
 .uv-cache/
 dist/
+data/
 build/
 *.egg-info/
 .pytest_cache/
@@ -14,3 +15,4 @@ build/
 htmlcov/
 .mypy_cache/
 .DS_Store
+uv.lock
