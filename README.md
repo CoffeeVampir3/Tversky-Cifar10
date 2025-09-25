@@ -1,3 +1,5 @@
+[![Discord](https://img.shields.io/discord/232596713892872193?logo=discord)](https://discord.gg/2JhHVh7CGu)
+
 https://arxiv.org/pdf/2506.11035
 
 A test network for CIFAR10 using Tversky layers. It does indeed learn, seems pretty neat.
