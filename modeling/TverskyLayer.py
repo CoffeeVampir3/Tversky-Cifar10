@@ -8,13 +8,22 @@ class TverskyLayer(nn.Module):
     def __init__(self, input_dim: int, num_prototypes: int, num_features: int):
         super().__init__()
 
-        self.features = nn.Parameter(torch.rand(num_features, input_dim) * 2 - 1)   # Feature bank
-        self.prototypes = nn.Parameter(torch.rand(num_prototypes, input_dim) * 2 - 1)  # Prototypes
-
-        # Zeros seemed to give better early on training dynamics
+        self.features = nn.Parameter(torch.empty(num_features, input_dim))  # Feature bank
+        self.prototypes = nn.Parameter(torch.empty(num_prototypes, input_dim))  # Prototypes
         self.alpha = nn.Parameter(torch.zeros(1))  # scale for a_distinctive
         self.beta = nn.Parameter(torch.zeros(1))   # Scale for b_distinctive
         self.theta = nn.Parameter(torch.zeros(1))  # General scale
+
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        torch.nn.init.uniform_(self.features, -.27, 1)
+        torch.nn.init.uniform_(self.prototypes, -.27, 1)
+
+        # Recommended by paper
+        #torch.nn.init.uniform_(self.alpha, 0, 2)
+        #torch.nn.init.uniform_(self.beta, 0, 2)
+        #torch.nn.init.uniform_(self.theta, 0, 2)
 
     def forward(self, x):
         batch_size, input_dim = x.shape

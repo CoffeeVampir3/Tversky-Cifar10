@@ -4,6 +4,7 @@ import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
 from modeling.TverskyLayer import TverskyLayer
+import time
 
 from utils.trainutils import count_parameters_layerwise
 
@@ -15,7 +16,7 @@ class TverskyBottleneckNet(nn.Module):
         self.conv3 = nn.Conv2d(32, 128, 3, padding=1)
         self.conv4 = nn.Conv2d(128, 64, 1)
         self.pool = nn.AdaptiveAvgPool2d(1)
-        self.tversky = TverskyLayer(64, 10, num_features)
+        self.tversky = TverskyLayer(64, 10, 10)
         self.relu = nn.ReLU()
 
     def forward(self, x):
@@ -43,7 +44,10 @@ optimizer = optim.Adam(net.parameters(), lr=0.001)
 
 count_parameters_layerwise(net)
 
+start_time = time.time()
+
 for epoch in range(15):
+    epoch_start_time = time.time()
     running_loss = 0.0
     for i, (inputs, labels) in enumerate(trainloader):
         inputs, labels = inputs.to(device), labels.to(device)
@@ -59,7 +63,11 @@ for epoch in range(15):
             print(f'Epoch {epoch + 1}, Batch {i + 1}: {running_loss / 100:.3f}')
             running_loss = 0.0
 
-print('Training finished')
+    epoch_time = time.time() - epoch_start_time
+    print(f'Epoch {epoch + 1} completed in {epoch_time:.2f}s')
+
+total_time = time.time() - start_time
+print(f'Training finished in {total_time:.2f}s')
 
 testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
 testloader = torch.utils.data.DataLoader(testset, batch_size=128, shuffle=False)
