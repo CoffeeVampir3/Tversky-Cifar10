@@ -25,7 +25,7 @@ ship: 68.20%
 truck: 82.10%
 ```
 
-Not present in the paper, an experimental multihead tversky which partitions prototypes. So 2 heads with 20 prototypes is 10 distinct prototypes per head.
+Not present in the paper, an experimental multihead tversky which partitions prototypes. So 2 heads with 20 prototypes is 10 distinct prototypes per head. This would be more useful in theory for larger networks, it has little application over dense Tversky at small scales as I see it.
 
 This particular test configuration is: `[Hidden=64, heads=2, prototypes=24, features=12]`
 ```
