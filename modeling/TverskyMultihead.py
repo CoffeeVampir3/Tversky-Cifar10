@@ -58,9 +58,9 @@ def tversky_multihead_similarity(x, features, prototypes, theta, alpha, beta, n_
     p_x_interaction = torch.bmm(x_present_h, p_weighted_h).transpose(0, 1)  # [batch, heads, prototypes]
     p_distinctive = p_weighted_sum - p_x_interaction                   # [batch, heads, prototypes]
 
-    theta = rearrange(theta, '1 -> 1 1 1')
-    alpha = rearrange(alpha, '1 -> 1 1 1')
-    beta = rearrange(beta, '1 -> 1 1 1')
+    theta = rearrange(theta, 'h 1 -> 1 h 1')
+    alpha = rearrange(alpha, 'h 1 -> 1 h 1')
+    beta = rearrange(beta, 'h 1 -> 1 h 1')
 
     tversky_out = theta * common - alpha * x_distinctive - beta * p_distinctive  # [batch, heads, prototypes]
     tversky_out = rearrange(tversky_out, 'b h d -> b (h d)') # [batch, heads * prototypes]
@@ -72,9 +72,9 @@ class TverskyMultihead(nn.Module):
 
         self.features = nn.Parameter(torch.empty(num_features, hidden_dim))  # Feature bank
         self.prototypes = nn.Parameter(torch.empty(num_prototypes, hidden_dim))  # Prototypes
-        self.alpha = nn.Parameter(torch.zeros(1))  # scale for a_distinctive
-        self.beta = nn.Parameter(torch.zeros(1))   # Scale for b_distinctive
-        self.theta = nn.Parameter(torch.zeros(1))  # General scale
+        self.alpha = nn.Parameter(torch.zeros(n_heads, 1))  # scale for a_distinctive
+        self.beta = nn.Parameter(torch.zeros(n_heads, 1))   # Scale for b_distinctive
+        self.theta = nn.Parameter(torch.zeros(n_heads, 1))  # General scale
         self.n_heads = n_heads
 
         self.reset_parameters()
