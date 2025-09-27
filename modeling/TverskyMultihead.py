@@ -1,70 +1,45 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from einops import rearrange
+from einops import rearrange, repeat
 
 def tversky_multihead_similarity(x, features, prototypes, theta, alpha, beta, n_heads):
     batch_size, total_dim = x.shape
-    d_head = total_dim // n_heads
+    total_prototypes = prototypes.shape[0]
+    prototypes_per_head = total_prototypes // n_heads
 
-    # Multihead expansion
-    x = rearrange(x, 'b (h d) -> b h d', h=n_heads)                    # [batch, heads, d_head]
-    features = rearrange(features, 'f (h d) -> h f d', h=n_heads)      # [heads, features, d_head]
-    prototypes = rearrange(prototypes, 'p (h d) -> h p d', h=n_heads)  # [heads, prototypes, d_head]
+    x_features = x @ features.T  # [batch, num_features]
+    x_present = F.relu(x_features)  # [batch, num_features]
+    x_weighted = x_features * x_present  # [batch, num_features]
+    x_weighted_sum = x_weighted.sum(dim=1, keepdim=True)  # [batch, 1]
 
-    # Full features (hidden * features per head, proto * features per head)
-    x_features = torch.einsum('bhd,hfd->bhf', x, features)             # [batch, heads, features]
-    p_features = torch.einsum('hpd,hfd->hpf', prototypes, features)    # [heads, prototypes, features]
+    features_T = features.T  # [total_dim, num_features]
 
-    # Presence masking
-    x_present = F.relu(x_features)                                     # [batch, heads, features]
-    p_present = F.relu(p_features)                                     # [heads, prototypes, features]
-    x_weighted = x_features * x_present                                # [batch, heads, features]
-    p_weighted = p_features * p_present                                # [heads, prototypes, features]
+    result = torch.zeros(batch_size, total_prototypes, device=x.device, dtype=x.dtype)
 
-    # BMM to avoid [batch, heads, prototypes, features] materialization
-    x_weighted_h = x_weighted.transpose(0, 1)                         # [heads, batch, features]
-    p_weighted_h = p_weighted.transpose(1, 2)                         # [heads, features, prototypes]
+    for head in range(n_heads):
+        start_idx = head * prototypes_per_head
+        end_idx = start_idx + prototypes_per_head
 
-    # Original: torch.einsum('bhf,hpf->bhp', x_weighted, p_weighted) would require broadcasting
-    # where intermediate tensors expand to [batch, heads, prototypes, features] for element-wise multiply
-    # Equivalent: sum_f(x_weighted[b,h,f] * p_weighted[h,p,f]) for each (b,h,p)
-    # = sum_f((x_weighted[b,h,f]) * (p_weighted[h,p,f]))
-    # = x_weighted[b,h,:] @ p_weighted[h,:,p] for each head h
-    # = torch.bmm([heads, batch, features], [heads, features, prototypes])
-    common = torch.bmm(x_weighted_h, p_weighted_h).transpose(0, 1)    # [batch, heads, prototypes]
+        head_prototypes = prototypes[start_idx:end_idx]  # [prototypes_per_head, total_dim]
 
-    # Same idea, avoid [batch, heads, prototypes, features] materialization
-    x_weighted_sum = x_weighted.sum(dim=2, keepdim=True)              # [batch, heads, 1]
-    p_present_h = p_present.transpose(1, 2)                           # [heads, features, prototypes]
+        p_features = head_prototypes @ features_T
+        p_present = F.relu(p_features)
+        p_weighted = p_features * p_present
 
-    # Original: torch.einsum('bhf,hpf->bhp', x_weighted, p_present)
-    # where p_present would broadcast to [batch, heads, prototypes, features]
-    # Equivalent: sum_f(x_weighted[b,h,f] * p_present[h,p,f]) for each (b,h,p)
-    # = x_weighted[b,h,:] @ p_present[h,:,p] for each head h
-    # = torch.bmm([heads, batch, features], [heads, features, prototypes])
-    x_p_interaction = torch.bmm(x_weighted_h, p_present_h).transpose(0, 1)  # [batch, heads, prototypes]
-    x_distinctive = x_weighted_sum - x_p_interaction                   # [batch, heads, prototypes]
+        combined_p = theta[head] * p_weighted + alpha[head] * p_present
+        p_weighted_sum = p_weighted.sum(dim=1)  # [prototypes_per_head]
 
-    # And again same to avoid [batch, heads, prototypes, features] materialization
-    p_weighted_sum = p_weighted.sum(dim=2).unsqueeze(0)               # [1, heads, prototypes]
-    x_present_h = x_present.transpose(0, 1)                           # [heads, batch, features]
+        term1 = x_weighted @ combined_p.T  # [batch, prototypes_per_head]
+        term2 = x_present @ p_weighted.T   # [batch, prototypes_per_head]
 
-    # Original: torch.einsum('bhf,hpf->bhp', x_present, p_weighted)
-    # where x_present would broadcast to [batch, heads, prototypes, features]
-    # Equivalent: sum_f(x_present[b,h,f] * p_weighted[h,p,f]) for each (b,h,p)
-    # = x_present[b,h,:] @ p_weighted[h,:,p] for each head h
-    # = torch.bmm([heads, batch, features], [heads, features, prototypes])
-    p_x_interaction = torch.bmm(x_present_h, p_weighted_h).transpose(0, 1)  # [batch, heads, prototypes]
-    p_distinctive = p_weighted_sum - p_x_interaction                   # [batch, heads, prototypes]
+        head_result = (term1 + beta[head] * term2 -
+                      alpha[head] * x_weighted_sum -
+                      beta[head] * p_weighted_sum.unsqueeze(0))
 
-    theta = rearrange(theta, 'h 1 -> 1 h 1')
-    alpha = rearrange(alpha, 'h 1 -> 1 h 1')
-    beta = rearrange(beta, 'h 1 -> 1 h 1')
+        result[:, start_idx:end_idx] = head_result
 
-    tversky_out = theta * common - alpha * x_distinctive - beta * p_distinctive  # [batch, heads, prototypes]
-    tversky_out = rearrange(tversky_out, 'b h d -> b (h d)') # [batch, heads * prototypes]
-    return tversky_out
+    return result # [batch_size, total_prototypes]
 
 class TverskyMultihead(nn.Module):
     def __init__(self, hidden_dim: int, n_heads: int, num_prototypes: int, num_features: int):

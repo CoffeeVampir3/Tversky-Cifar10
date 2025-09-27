@@ -16,7 +16,7 @@ class TverskyBottleneckNet(nn.Module):
         self.conv3 = nn.Conv2d(32, 128, 3, padding=1)
         self.conv4 = nn.Conv2d(128, 64, 1)
         self.pool = nn.AdaptiveAvgPool2d(1)
-        self.tversky = TverskyMultihead(64, 1, 10, 10)
+        self.tversky = TverskyMultihead(64, 2, 24, 12)
         self.relu = nn.ReLU()
 
     def forward(self, x):
