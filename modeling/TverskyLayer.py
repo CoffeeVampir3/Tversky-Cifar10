@@ -6,7 +6,7 @@ from einops import rearrange
 from utils.trainutils import count_parameters_layerwise
 
 class TverskyLayer(nn.Module):
-    def __init__(self, input_dim: int, num_prototypes: int, num_features: int):
+    def __init__(self, input_dim: int, num_prototypes: int, num_features: int, use_cached_forward=True):
         super().__init__()
 
         self.features = nn.Parameter(torch.empty(num_features, input_dim))  # Feature bank
@@ -14,9 +14,11 @@ class TverskyLayer(nn.Module):
         self.alpha = nn.Parameter(torch.zeros(1))  # scale for a_distinctive
         self.beta = nn.Parameter(torch.zeros(1))   # Scale for b_distinctive
         self.theta = nn.Parameter(torch.zeros(1))  # General scale
+        self.use_cached_forward = use_cached_forward
 
-        self.register_buffer('cached_matrix', None)
-        self.register_buffer('cached_proto_sum', None)
+        if use_cached_forward:
+            self.register_buffer('cached_matrix', None)
+            self.register_buffer('cached_proto_sum', None)
 
         self.reset_parameters()
 
@@ -34,7 +36,7 @@ class TverskyLayer(nn.Module):
         x_present = F.softplus(x_features, beta=10)
         x_weighted = x_features * x_present
 
-        if self.training:
+        if not self.use_cached_forward or self.training:
             proto_features = self.prototypes @ self.features.T
             proto_present = F.softplus(proto_features, beta=10)
             proto_weighted = proto_features * proto_present
