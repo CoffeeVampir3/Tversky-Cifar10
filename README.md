@@ -25,29 +25,6 @@ ship: 68.20%
 truck: 82.10%
 ```
 
-Not present in the paper, an experimental multihead tversky which partitions prototypes. So 2 heads with 20 prototypes is 10 distinct prototypes per head. This would be more useful in theory for larger networks, it has little application over dense Tversky at small scales as I see it.
-
-This particular test configuration is: `[Hidden=64, heads=2, prototypes=24, features=12]`
-```
-uv run python multihead.py
-```
-```
-Total Trainable Parameters: 51,430
-Training finished in 66.56s
-Overall Accuracy: 64.04%
-plane: 54.60%
-car: 74.60%
-bird: 32.20%
-cat: 58.80%
-deer: 57.50%
-dog: 56.30%
-frog: 77.70%
-horse: 59.00%
-ship: 86.20%
-truck: 83.50%
-
-```
-
 To run the control network train+test.
 ```
 uv run python control.py
