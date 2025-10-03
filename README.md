@@ -2,6 +2,10 @@
 
 https://arxiv.org/pdf/2506.11035
 
+XOR test: https://github.com/CoffeeVampir3/Tverysky-Torch
+Cifar10: https://github.com/CoffeeVampir3/Tversky-Cifar10/tree/main
+Language model: https://github.com/CoffeeVampir3/Architecture-Tversky-All
+
 A test network for CIFAR10 using Tversky layers. It does indeed learn, seems pretty neat.
 
 To run the Tversky variant train+test.
