@@ -16,7 +16,16 @@ class TverskyBottleneckNet(nn.Module):
         self.conv3 = nn.Conv2d(32, 128, 3, padding=1)
         self.conv4 = nn.Conv2d(128, 64, 1)
         self.pool = nn.AdaptiveAvgPool2d(1)
-        self.tversky = TverskyLayer(64, 10, 10)
+
+        self.tversky = TverskyLayer(
+            64,
+            10,
+            10,
+            prototype_init=lambda x: torch.nn.init.uniform_(x, -1, 1),
+            feature_init=lambda x: torch.nn.init.uniform_(x, -1, 1),
+            approximate_sharpness=18
+        )
+
         self.relu = nn.ReLU()
 
     def forward(self, x):
@@ -38,7 +47,8 @@ trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-net = torch.compile(TverskyBottleneckNet(num_features=256).to(device))
+net = TverskyBottleneckNet(num_features=256).to(device)
+torch.compile(net, backend="aot_eager")
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(net.parameters(), lr=0.001)
 
@@ -107,7 +117,6 @@ for i in range(10):
     print(f'{classes[i]}: {acc:.2f}%')
 
 from sklearn.metrics import confusion_matrix
-import numpy as np
 
 cm = confusion_matrix(all_labels, all_predicted)
 print('\nConfusion Matrix:')
